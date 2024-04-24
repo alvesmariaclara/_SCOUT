@@ -23,6 +23,13 @@ min_linear_vel = 0.2 * scale
 max_angular_vel = 0.1 * scale
 min_angular_vel = 0.05 * scale
 
+#Para fins de testes definir sendo o mesmo que o valor mínimo da velocidade linear
+min_limit_value = min_linear_vel
+
+def isFlying():
+  global min_limit_value
+  return last_pose.position.z >= min_limit_value
+
 def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 
 def callback_current_pose(data):
@@ -37,23 +44,23 @@ def callback_target(data):
   # update the new target
   last_target = data
 
-def compute_z_vel(base_pose: Pose, target_pose: Pose):
-  height_diff = target_pose.position.z - base_pose.position.z
-  vel_z = 0
+def compute_vel(base_pose_n: float, target_pose_n: float):
+  height_diff = target_pose_n - base_pose_n
+  vel = 0
 
   if height_diff > 0.1:
-    vel_z = clamp(height_diff, min_linear_vel, max_linear_vel)
+    vel = clamp(height_diff, min_linear_vel, max_linear_vel)
   elif height_diff < -0.1:
-    vel_z = clamp(height_diff, -max_linear_vel, -min_linear_vel)
+    vel = clamp(height_diff, -max_linear_vel, -min_linear_vel)
 
-  return vel_z
+  return vel
 
 def compute_linear_vel(base_pose: Pose, target_pose: Pose):
   linear_vel = Vector3()
 
-  linear_vel.z = compute_z_vel(last_pose, last_target)
-  linear_vel.x = 0 # to compute
-  linear_vel.y = 0 # to compute
+  linear_vel.y = compute_vel(base_pose.position.y, target_pose.position.y)
+  linear_vel.x = compute_vel(base_pose.position.x, target_pose.position.x)
+  linear_vel.z = compute_vel(base_pose.position.z, target_pose.position.z)
 
   return linear_vel
 
@@ -104,11 +111,11 @@ def compute_angular_vel(base_pose: Pose, target_pose: Pose):
 
   return angular_vel
 
-def compute_cmd_vel():
+def compute_cmd_vel(base_pose: Pose, target_pose: Pose):
   velocity = Twist()
 
-  velocity.linear = compute_linear_vel(last_pose, last_target)
-  velocity.angular = compute_angular_vel(last_pose, last_target)
+  velocity.linear = compute_linear_vel(base_pose, target_pose)
+  velocity.angular = compute_angular_vel(base_pose, target_pose)
 
   return velocity
 
@@ -125,8 +132,29 @@ def runner():
     # show data
     # rospy.loginfo("[Pose: %s, Target: %s]", last_pose, last_target)
 
-    # compute cmd vel
-    cmd = compute_cmd_vel()
+
+    # Algoritmo de movimento
+    # Toda vez que a diferença de posição atual e alvo de x ou y for diferente de 0 E o robô não estiver voando: decolar
+    if(((last_target.position.x-last_pose.position.x)!=0 or (last_target.position.y-last_pose.position.y)!=0) and not isFlying()):
+      aux = Pose()
+      aux.position = last_pose
+      aux.position.z = min_limit_value
+      cmd = compute_cmd_vel(last_pose, aux)
+      cmd_vel_pub.publish(cmd)
+      
+    #Depois, vai realizar a movimentação:
+          # REGRA/Plano de ordem de movimentação (pois z tem um limite espacial, precisa ter um plano de movimentação)
+          # Regras: 
+          #- não modificar os valores angulares para grarantir uma mesma orientação entre movimentos/simulação. 
+		      #- deixar a movimentação de altitude sempre em segundo plano: de modo que, sempre vai ser aplicado x e y, sem modificar z e depois z, sem modificar x e y.
+    aux = Pose()
+    aux = last_target
+    aux.position.z = last_pose.position.z
+    cmd = compute_cmd_vel(last_pose, aux)
+    cmd_vel_pub.publish(cmd)
+
+    aux.position.z = last_target.position.z
+    cmd = compute_cmd_vel(last_pose, aux)
 
     # publish cmd vel
     cmd_vel_pub.publish(cmd)
