@@ -23,12 +23,7 @@ min_linear_vel = 0.2 * scale
 max_angular_vel = 0.1 * scale
 min_angular_vel = 0.05 * scale
 
-#Para fins de testes definir sendo o mesmo que o valor mínimo da velocidade linear
-min_limit_value = min_linear_vel
-
-def isFlying():
-  global min_limit_value
-  return last_pose.position.z >= min_limit_value
+min_height = min_linear_vel
 
 def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 
@@ -44,23 +39,23 @@ def callback_target(data):
   # update the new target
   last_target = data
 
-def compute_vel(base_pose_n: float, target_pose_n: float):
-  height_diff = target_pose_n - base_pose_n
-  vel = 0
+def compute_n_vel(base_n: float, target_n: float):
+  height_diff = target_n - base_n
+  vel_n = 0
 
   if height_diff > 0.1:
-    vel = clamp(height_diff, min_linear_vel, max_linear_vel)
+    vel_n = clamp(height_diff, min_linear_vel, max_linear_vel)
   elif height_diff < -0.1:
-    vel = clamp(height_diff, -max_linear_vel, -min_linear_vel)
+    vel_n = clamp(height_diff, -max_linear_vel, -min_linear_vel)
 
-  return vel
+  return vel_n
 
 def compute_linear_vel(base_pose: Pose, target_pose: Pose):
   linear_vel = Vector3()
 
-  linear_vel.y = compute_vel(base_pose.position.y, target_pose.position.y)
-  linear_vel.x = compute_vel(base_pose.position.x, target_pose.position.x)
-  linear_vel.z = compute_vel(base_pose.position.z, target_pose.position.z)
+  linear_vel.z = compute_n_vel(last_pose.position.z, last_target.position.z)
+  linear_vel.x = compute_n_vel(last_pose.position.x, last_target.position.x)
+  linear_vel.y = compute_n_vel(last_pose.position.y, last_target.position.y)
 
   return linear_vel
 
@@ -111,11 +106,11 @@ def compute_angular_vel(base_pose: Pose, target_pose: Pose):
 
   return angular_vel
 
-def compute_cmd_vel(base_pose: Pose, target_pose: Pose):
+def compute_cmd_vel(aux_target_pose: Pose):
   velocity = Twist()
 
-  velocity.linear = compute_linear_vel(base_pose, target_pose)
-  velocity.angular = compute_angular_vel(base_pose, target_pose)
+  velocity.linear = compute_linear_vel(last_pose, aux_target_pose)
+  velocity.angular = compute_angular_vel(last_pose, last_target)
 
   return velocity
 
@@ -128,35 +123,28 @@ def runner():
   cmd_vel_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
   update_rate = rospy.Rate(10)
 
-  while not rospy.is_shutdown():
+  while not rospy.is_shutdown(): #enquanto não desligar
     # show data
-    # rospy.loginfo("[Pose: %s, Target: %s]", last_pose, last_target)
+    rospy.loginfo("[Pose: %s, Target: %s]", last_pose, last_target)
 
+    #if (((last_pose.position.x - last_target.position.x < min_range_x) or (last_pose.position.y - last_target.position.y < min_range_y)) 
+      #  and (last_target.position < min_height)): 
 
-    # Algoritmo de movimento
-    # Toda vez que a diferença de posição atual e alvo de x ou y for diferente de 0 E o robô não estiver voando: decolar
-    if(((last_target.position.x-last_pose.position.x)!=0 or (last_target.position.y-last_pose.position.y)!=0) and not isFlying()):
-      aux = Pose()
-      aux.position = last_pose
-      aux.position.z = min_limit_value
-      cmd = compute_cmd_vel(last_pose, aux)
-      cmd_vel_pub.publish(cmd)
-      
-    #Depois, vai realizar a movimentação:
-          # REGRA/Plano de ordem de movimentação (pois z tem um limite espacial, precisa ter um plano de movimentação)
-          # Regras: 
-          #- não modificar os valores angulares para grarantir uma mesma orientação entre movimentos/simulação. 
-		      #- deixar a movimentação de altitude sempre em segundo plano: de modo que, sempre vai ser aplicado x e y, sem modificar z e depois z, sem modificar x e y.
-    aux = Pose()
-    aux = last_target
-    aux.position.z = last_pose.position.z
-    cmd = compute_cmd_vel(last_pose, aux)
-    cmd_vel_pub.publish(cmd)
+    if(last_target.position.z >= min_height):
+      aux: Pose
+      aux = last_pose
+      aux.position.z = last_target.position.z
+      cmd = compute_cmd_vel(aux)
+      cmd_vel_pub.publish(cmd) #primeiro "voar"
+      rospy.loginfo("[Pose: %s, Target: %s]", last_pose, last_target)
+      update_rate.sleep() #pra não sobrescrever antes de realizar o movimento completo
+    else:
+      rospy.loginfo("Altura abaixo da mínima: %s", last_pose.position.z)
 
-    aux.position.z = last_target.position.z
-    cmd = compute_cmd_vel(last_pose, aux)
+    # compute cmd vel
+    cmd = compute_cmd_vel(last_target)
 
-    # publish cmd vel
+    # publish cmd vel 
     cmd_vel_pub.publish(cmd)
 
     # sleep
@@ -164,3 +152,4 @@ def runner():
 
 if __name__ == '__main__':
   runner()
+
