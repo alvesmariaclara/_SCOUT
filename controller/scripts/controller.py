@@ -60,18 +60,19 @@ def compute_linear_vel(base_pose: Pose, target_pose: Pose):
   if diferenca != 0:
     diferenca_percentual = (diferenca / base_pose.position.z) * 100
     
-  if diferenca_percentual >= -5 and diferenca_percentual <= 5:
-      linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
-      linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
-      linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
-  elif diferenca_percentual > 5:
-      linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
-      linear_vel.x = 0
-      linear_vel.y = 0
-  elif diferenca_percentual <-5:
+  if diferenca_percentual >= 5:
+    linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
+    linear_vel.x = 0
+    linear_vel.y = 0
+  elif diferenca_percentual <= -5:
       linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
       linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
       linear_vel.z = 0  
+  else:  # para o intervalo entre -5 e 5
+      linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
+      linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
+      linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
+ 
 
   return linear_vel
 
