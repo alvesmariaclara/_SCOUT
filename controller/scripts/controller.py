@@ -53,9 +53,25 @@ def compute_n_vel(base_n: float, target_n: float):
 def compute_linear_vel(base_pose: Pose, target_pose: Pose):
   linear_vel = Vector3()
 
-  linear_vel.z = compute_n_vel(last_pose.position.z, last_target.position.z)
-  linear_vel.x = compute_n_vel(last_pose.position.x, last_target.position.x)
-  linear_vel.y = compute_n_vel(last_pose.position.y, last_target.position.y)
+  diferenca = target_pose.position.z - base_pose.position.z 
+
+  diferenca_percentual = 0
+
+  if diferenca != 0:
+    diferenca_percentual = (diferenca / base_pose.position.z) * 100
+    
+  if diferenca_percentual >= -5 and diferenca_percentual <= 5:
+      linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
+      linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
+      linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
+  elif diferenca_percentual > 5:
+      linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
+      linear_vel.x = 0
+      linear_vel.y = 0
+  elif diferenca_percentual <-5:
+      linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
+      linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
+      linear_vel.z = 0  
 
   return linear_vel
 
@@ -106,10 +122,10 @@ def compute_angular_vel(base_pose: Pose, target_pose: Pose):
 
   return angular_vel
 
-def compute_cmd_vel(aux_target_pose: Pose):
+def compute_cmd_vel():
   velocity = Twist()
 
-  velocity.linear = compute_linear_vel(last_pose, aux_target_pose)
+  velocity.linear = compute_linear_vel(last_pose, last_target)
   velocity.angular = compute_angular_vel(last_pose, last_target)
 
   return velocity
@@ -127,22 +143,8 @@ def runner():
     # show data
     rospy.loginfo("[Pose: %s, Target: %s]", last_pose, last_target)
 
-    #if (((last_pose.position.x - last_target.position.x < min_range_x) or (last_pose.position.y - last_target.position.y < min_range_y)) 
-      #  and (last_target.position < min_height)): 
-
-    if(last_target.position.z >= min_height):
-      aux: Pose
-      aux = last_pose
-      aux.position.z = last_target.position.z
-      cmd = compute_cmd_vel(aux)
-      cmd_vel_pub.publish(cmd) #primeiro "voar"
-      rospy.loginfo("[Pose: %s, Target: %s]", last_pose, last_target)
-      update_rate.sleep() #pra não sobrescrever antes de realizar o movimento completo
-    else:
-      rospy.loginfo("Altura abaixo da mínima: %s", last_pose.position.z)
-
     # compute cmd vel
-    cmd = compute_cmd_vel(last_target)
+    cmd = compute_cmd_vel()
 
     # publish cmd vel 
     cmd_vel_pub.publish(cmd)
