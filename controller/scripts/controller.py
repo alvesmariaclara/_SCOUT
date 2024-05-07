@@ -23,7 +23,7 @@ min_linear_vel = 0.2 * scale
 max_angular_vel = 0.1 * scale
 min_angular_vel = 0.05 * scale
 
-min_height = min_linear_vel
+min_limit_height = min_linear_vel
 
 def clamp(n, smallest, largest): return max(smallest, min(n, largest))
 
@@ -50,31 +50,50 @@ def compute_n_vel(base_n: float, target_n: float):
 
   return vel_n
 
-def compute_linear_vel(base_pose: Pose, target_pose: Pose):
-  linear_vel = Vector3()
+def calcular_diferenca_percentual(n: str, base_n: float, target_n: float) -> float:
+    diferenca = target_n - base_n
 
-  diferenca = target_pose.position.z - base_pose.position.z 
+    if base_n != 0:
+        diferenca_percentual = (diferenca / abs(base_n)) * 100
+    else:
+        diferenca_percentual = 0
 
-  diferenca_percentual = 0
+    rospy.loginfo("%s: Diferença percentual: %s de %s a %s", n, diferenca_percentual, base_n, target_n)
+    return diferenca_percentual
 
-  if diferenca != 0:
-    diferenca_percentual = (diferenca / base_pose.position.z) * 100
-    
-  if diferenca_percentual >= 5:
-    linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
-    linear_vel.x = 0
-    linear_vel.y = 0
-  elif diferenca_percentual <= -5:
-      linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
-      linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
-      linear_vel.z = 0  
-  else:  # para o intervalo entre -5 e 5
-      linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
-      linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
-      linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
- 
+def compute_linear_vel(base_pose: Pose, target_pose: Pose) -> Vector3:
+    linear_vel = Vector3()
 
-  return linear_vel
+    diferenca_percentual = Vector3()
+    diferenca_percentual.z = calcular_diferenca_percentual("z", base_pose.position.z, target_pose.position.z)
+    diferenca_percentual.x = calcular_diferenca_percentual("x", base_pose.position.x, target_pose.position.x)
+    diferenca_percentual.y = calcular_diferenca_percentual("y", base_pose.position.y, target_pose.position.y)
+
+    limiar = 5
+    #min_limit_height = 0.1 
+
+    if base_pose.position.z >= min_limit_height:
+      if diferenca_percentual.z > limiar:
+          # Caso 1: Diferença percentual de z >= 5
+          linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
+          rospy.loginfo("Caso 1: Diferença percentual.z >= 5: %s", diferenca_percentual.z)
+      elif (diferenca_percentual.z < -limiar and 
+            (diferenca_percentual.x > limiar or diferenca_percentual.y > limiar)):
+          # Caso 2: Diferença percentual de z <= -5 e diferença percentual de x ou y >= 5
+          linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
+          linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
+          rospy.loginfo("Caso 2: Diferença percentual.z <= -5: %s", diferenca_percentual.z)
+      else:
+          # Caso 3: Outros casos dentro do intervalo entre -5 e 5 de diferença percentual de z
+          linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
+          linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
+          linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
+          rospy.loginfo("Caso 3: Diferença percentual entre -5 e 5: %s", diferenca_percentual.z)
+    else:
+      # Altura atual < que o valor mínimo
+      rospy.loginfo("Altura atual < que o valor mínimo: %s", base_pose.position.z)
+
+    return linear_vel
 
 def compute_relative_rotation(reference_rot: Quaternion, target_rot: Quaternion):
 
@@ -140,14 +159,15 @@ def runner():
   cmd_vel_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
   update_rate = rospy.Rate(10)
 
-  while not rospy.is_shutdown(): #enquanto não desligar
+  while not rospy.is_shutdown():
     # show data
     rospy.loginfo("[Pose: %s, Target: %s]", last_pose, last_target)
+    rospy.loginfo("-------------------------------------")
 
     # compute cmd vel
     cmd = compute_cmd_vel()
 
-    # publish cmd vel 
+    # publish cmd vel
     cmd_vel_pub.publish(cmd)
 
     # sleep
