@@ -58,40 +58,61 @@ def calcular_diferenca_percentual(n: str, base_n: float, target_n: float) -> flo
     else:
         diferenca_percentual = 0
 
-    rospy.loginfo("%s: Diferença percentual: %s de %s a %s", n, diferenca_percentual, base_n, target_n)
+    rospy.loginfo("%s: Diferença: %s de %s a %s", n, diferenca, base_n, target_n)
     return diferenca_percentual
 
 def compute_linear_vel(base_pose: Pose, target_pose: Pose) -> Vector3:
     linear_vel = Vector3()
+    diferenca = Vector3()
 
-    diferenca_percentual = Vector3()
-    diferenca_percentual.z = calcular_diferenca_percentual("z", base_pose.position.z, target_pose.position.z)
-    diferenca_percentual.x = calcular_diferenca_percentual("x", base_pose.position.x, target_pose.position.x)
-    diferenca_percentual.y = calcular_diferenca_percentual("y", base_pose.position.y, target_pose.position.y)
+    limiar = 0.05*scale
 
-    limiar = 5
-    #min_limit_height = 0.1 
+    # se z tiver de valores próximos ao limiar, move x e y
+    # se não,
+        # se z > +limiar, move z -> x e y 
+        # se z < -limiar, move x e y (até x e y chegar ao abs(limiar)) -> x e y
 
-    if base_pose.position.z >= min_limit_height:
-      if diferenca_percentual.z > limiar:
-          # Caso 1: Diferença percentual de z >= 5
-          linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
-          rospy.loginfo("Caso 1: Diferença percentual.z >= 5: %s", diferenca_percentual.z)
-      elif (diferenca_percentual.z < -limiar and 
-            (diferenca_percentual.x > limiar or diferenca_percentual.y > limiar)):
-          # Caso 2: Diferença percentual de z <= -5 e diferença percentual de x ou y >= 5
-          linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
-          linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
-          rospy.loginfo("Caso 2: Diferença percentual.z <= -5: %s", diferenca_percentual.z)
-      else:
-          # Caso 3: Outros casos dentro do intervalo entre -5 e 5 de diferença percentual de z
-          linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
-          linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
-          linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
-          rospy.loginfo("Caso 3: Diferença percentual entre -5 e 5: %s", diferenca_percentual.z)
-    else:
-      # Altura atual < que o valor mínimo
-      rospy.loginfo("Altura atual < que o valor mínimo: %s", base_pose.position.z)
+    diferenca.z = target_pose.position.z - base_pose.position.z
+    diferenca.x = target_pose.position.x - base_pose.position.x 
+    diferenca.y = target_pose.position.y - base_pose.position.y
+
+    limiar_altura = 0.5
+    limiar = 0.1
+    #por função calibrar limiares
+
+    # Todos os valores próximos ao limiar
+    if abs(diferenca.z)<=limiar_altura and abs(diferenca.x)<=limiar and abs(diferenca.y)<=limiar:
+        linear_vel.z = 0
+        linear_vel.x = 0
+        linear_vel.y = 0
+        rospy.loginfo("Caso 1: Todos os valores próximos: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
+    # Se não, altura maior que o +limiar
+    elif diferenca.z>limiar_altura:
+        linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
+        linear_vel.x = 0
+        linear_vel.y = 0
+        rospy.loginfo("Caso 2: Altura maior que o limiar: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
+    # Se não, altura menor que o -limiar
+    elif diferenca.z<-limiar_altura:
+       # Se diferença de x e y não atingidos, diferença x ou de y > limiar, calcula x e y
+        if abs(diferenca.x)>limiar or abs(diferenca.y)>limiar:
+            linear_vel.z = 0
+            linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
+            linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
+            rospy.loginfo("Caso 3.1: Altura menor que o limiar negativo, x ou y>limiar: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
+        # Se x e y atingidos, calcula z.
+        else:
+            linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
+            linear_vel.x = 0
+            linear_vel.y = 0
+            rospy.loginfo("Caso 3.1: Altura menor que o limiar negativo, x ou y<limiar: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
+    # Se não, altura entre -limiar e +limiar, calcula x e y.
+    elif diferenca.z<limiar_altura and diferenca.z>=0:
+        linear_vel.z = 0
+        linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
+        linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
+        rospy.loginfo("Caso 3: Altura próximo ao limiar: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
+       
 
     return linear_vel
 
