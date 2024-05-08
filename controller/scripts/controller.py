@@ -50,17 +50,6 @@ def compute_n_vel(base_n: float, target_n: float):
 
   return vel_n
 
-def calcular_diferenca_percentual(n: str, base_n: float, target_n: float) -> float:
-    diferenca = target_n - base_n
-
-    if base_n != 0:
-        diferenca_percentual = (diferenca / abs(base_n)) * 100
-    else:
-        diferenca_percentual = 0
-
-    rospy.loginfo("%s: Diferença: %s de %s a %s", n, diferenca, base_n, target_n)
-    return diferenca_percentual
-
 def compute_linear_vel(base_pose: Pose, target_pose: Pose) -> Vector3:
     linear_vel = Vector3()
     diferenca = Vector3()
