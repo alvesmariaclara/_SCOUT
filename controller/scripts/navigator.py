@@ -1,37 +1,72 @@
 #!/usr/bin/env python3
+
 import rospy
-from geometry_msgs.msg import PoseStamped, Pose, Twist
+from geometry_msgs.msg import Pose, Quaternion, Point, PoseStamped, Vector3
 
-def read_data():
-    with open("data.txt", "r") as file:
-        data = file.read().strip().split(',')
-        if len(data) != 6:
-            return None
-        else:
-            pose = PoseStamped()
-            pose.pose.position.x = float(data[0])
-            pose.pose.position.y = float(data[1])
-            pose.pose.position.z = float(data[2])
-            pose.pose.orientation.x = float(data[3])
-            pose.pose.orientation.y = float(data[4])
-            pose.pose.orientation.z = float(data[5])
-            return pose
+last_pose = Pose()
+scale = 1.0
 
-def runner():
-    rospy.init_node('data_updater', anonymous=True)
+def callback_current_pose(data):
+  global last_pose
+  
+  # get the last pose
+  last_pose = data.pose
+  
 
-    updated_pose_pub = rospy.Publisher("/updated_pose", PoseStamped, queue_size=10)
-    update_rate = rospy.Rate(10)
+def update_target(base_pose: Pose, target_pose: Pose) -> bool:
+    linear_vel = Vector3()
+    diferenca = Vector3()
 
+    limiar = 0.05*scale
+
+    diferenca.z = target_pose.position.z - base_pose.position.z
+    diferenca.x = target_pose.position.x - base_pose.position.x 
+    diferenca.y = target_pose.position.y - base_pose.position.y
+
+    limiar_altura = 0.3
+    limiar = 0.8
+
+    # Todos os valores próximos ao limiar
+    if abs(diferenca.z)<=limiar_altura and abs(diferenca.x) <= limiar and abs(diferenca.y)<=limiar:
+        return True
+
+    return False
+
+def publish_pose_list(pose_list):
+    rospy.init_node("pose_navigator", anonymous=True)
+
+    rospy.Subscriber("/ground_truth_to_tf/pose", PoseStamped, callback_current_pose)
+
+    pub = rospy.Publisher("/drone/target", Pose, queue_size=10)
+
+    rate = rospy.Rate(10) 
+
+    current_index = 0
     while not rospy.is_shutdown():
-        pose_data = read_data()
-        if pose_data is not None:
-            updated_pose_pub.publish(pose_data)
-            update_rate.sleep()
+        # Verifica se ainda há poses na lista
+        if current_index >= len(pose_list):
+            rospy.loginfo("Todas as poses da lista foram alcançadas.")
+            break
+
+        target_pose = pose_list[current_index]
+        # Verifica se a pose deve ser atualizada
+        if update_target(last_pose, target_pose):
+            rospy.loginfo("Atualizando pose...")
+            current_index += 1
+            continue
+
+        pub.publish(target_pose)
+        rate.sleep()
 
 if __name__ == '__main__':
+    pose_list = [
+        Pose(position=Point(x=1.0, y=2.0, z=2.0), orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=0.0)),
+        Pose(position=Point(x=2.0, y=3.0, z=2.0), orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=0.0)),
+        Pose(position=Point(x=3.0, y=4.0, z=1.0), orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=100)),
+        last_pose
+    ]
+
     try:
-        runner()
+        publish_pose_list(pose_list)
     except rospy.ROSInterruptException:
         pass
-
