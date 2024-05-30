@@ -14,7 +14,6 @@ def callback_current_pose(data):
   
 
 def update_target(base_pose: Pose, target_pose: Pose) -> bool:
-    linear_vel = Vector3()
     diferenca = Vector3()
 
     limiar = 0.05*scale
@@ -23,11 +22,15 @@ def update_target(base_pose: Pose, target_pose: Pose) -> bool:
     diferenca.x = target_pose.position.x - base_pose.position.x 
     diferenca.y = target_pose.position.y - base_pose.position.y
 
-    limiar_altura = 0.3
-    limiar = 0.8
+    limiar_altura = 0.5
+    limiar = 1.0
+
+    rospy.loginfo("Base pose: %s %s %s", base_pose.position.z, base_pose.position.x, base_pose.position.y)
+    rospy.loginfo("Target: %s %s %s", target_pose.position.z, target_pose.position.x, target_pose.position.y)
+    rospy.loginfo("Diferença: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
 
     # Todos os valores próximos ao limiar
-    if abs(diferenca.z)<=limiar_altura and abs(diferenca.x) <= limiar and abs(diferenca.y)<=limiar:
+    if abs(diferenca.z)<=limiar_altura and abs(diferenca.x)<=limiar and abs(diferenca.y)<=limiar:
         return True
 
     return False
@@ -59,11 +62,13 @@ def publish_pose_list(pose_list):
         rate.sleep()
 
 if __name__ == '__main__':
+    initial_pose = last_pose
+
     pose_list = [
-        Pose(position=Point(x=1.0, y=2.0, z=2.0), orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=0.0)),
-        Pose(position=Point(x=2.0, y=3.0, z=2.0), orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=0.0)),
-        Pose(position=Point(x=3.0, y=4.0, z=1.0), orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=100)),
-        last_pose
+        Pose(position=Point(x=1.0, y=2.0, z=5.0), orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=0.0)),
+        Pose(position=Point(x=2.0, y=3.0, z=5.0), orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=0.0)),
+        Pose(position=Point(x=3.0, y=4.0, z=1.0), orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=0.0)),
+        initial_pose,
     ]
 
     try:
