@@ -3,25 +3,20 @@
 import rospy
 from geometry_msgs.msg import Pose, Quaternion, Point, PoseStamped, Vector3
 
-pose_list = []  # Lista global de poses
+last_pose = Pose()
 scale = 1.0
 
-def callback_pose_topic(data):
-    global pose_list
-
-    # Adiciona a nova pose à lista
-    pose_list.append(data.pose)
-    rospy.loginfo("Pose adicionada: %s", data.pose)
-
 def callback_current_pose(data):
-    global last_pose
-    
-    # Atualiza a última pose recebida
-    last_pose = data.pose
+  global last_pose
+  
+  # get the last pose
+  last_pose = data.pose
+  
 
 def update_target(base_pose: Pose, target_pose: Pose) -> bool:
     diferenca = Vector3()
-    limiar = 0.05 * scale
+
+    limiar = 0.05*scale
 
     diferenca.z = target_pose.position.z - base_pose.position.z
     diferenca.x = target_pose.position.x - base_pose.position.x 
@@ -35,16 +30,14 @@ def update_target(base_pose: Pose, target_pose: Pose) -> bool:
     rospy.loginfo("Diferença: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
 
     # Todos os valores próximos ao limiar
-    if abs(diferenca.z) <= limiar_altura and abs(diferenca.x) <= limiar and abs(diferenca.y) <= limiar:
+    if abs(diferenca.z)<=limiar_altura and abs(diferenca.x)<=limiar and abs(diferenca.y)<=limiar:
         return True
 
     return False
 
-def publish_pose_list():
-    global pose_list
+def publish_pose_list(pose_list):
     rospy.init_node("pose_navigator", anonymous=True)
 
-    rospy.Subscriber("/pose_topic", PoseStamped, callback_pose_topic)  # Inscreve-se no tópico pose_topic
     rospy.Subscriber("/ground_truth_to_tf/pose", PoseStamped, callback_current_pose)
 
     pub = rospy.Publisher("/drone/target", Pose, queue_size=10)
@@ -69,7 +62,16 @@ def publish_pose_list():
         rate.sleep()
 
 if __name__ == '__main__':
+    initial_pose = last_pose
+
+    pose_list = [
+        Pose(position=Point(x=1.0, y=2.0, z=5.0), orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=0.0)),
+        Pose(position=Point(x=2.0, y=3.0, z=5.0), orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=0.0)),
+        Pose(position=Point(x=3.0, y=4.0, z=1.0), orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=0.0)),
+        initial_pose,
+    ]
+
     try:
-        publish_pose_list()
+        publish_pose_list(pose_list)
     except rospy.ROSInterruptException:
         pass
