@@ -3,40 +3,40 @@
 import rospy
 import heapq
 import math
-from geometry_msgs.msg import Pose, Point, Quaternion
+from geometry_msgs.msg import Pose, Point, Quaternion, PoseStamped
 from std_msgs.msg import Header
 import time
 
-# Função para converter de Pose para coordenadas (x, y, z)
+#converter de Pose para coordenadas (x, y, z)
 def pose_para_coordenadas(pose):
     return (pose.position.x, pose.position.y, pose.position.z)
 
-# Função para converter de coordenadas (x, y, z) para Pose
+#converter de coordenadas (x, y, z) para Pose
 def coordenadas_para_pose(x, y, z):
     return Pose(position=Point(x, y, z), orientation=Quaternion(0, 0, 0, 1))
 
-# Lista global de obstáculos (como coordenadas para hash)
+#global de obstáculos (como coordenadas para hash)
 obstaculos = [
     pose_para_coordenadas(Pose(position=Point(1, 1, 1), orientation=Quaternion(0, 0, 0, 1))),
     pose_para_coordenadas(Pose(position=Point(2, 2, 2), orientation=Quaternion(0, 0, 0, 1))),
     pose_para_coordenadas(Pose(position=Point(1, 2, 1), orientation=Quaternion(0, 0, 0, 1)))
 ]
 
-# Função para calcular a heurística (distância euclidiana) entre dois nós (como coordenadas)
+#calcular a heurística (distância euclidiana) entre dois nós (como coordenadas)
 def heuristica_euclidiana(no_atual, no_objetivo):
     dx = no_atual[0] - no_objetivo[0]
     dy = no_atual[1] - no_objetivo[1]
     dz = no_atual[2] - no_objetivo[2]
     return math.sqrt(dx**2 + dy**2 + dz**2)
 
-# Função para calcular a heurística (distância de Manhattan) entre dois nós (como coordenadas)
+# calcular a heurística (distância de Manhattan) entre dois nós (como coordenadas)
 def heuristica_manhattan(no_atual, no_objetivo):
     dx = abs(no_atual[0] - no_objetivo[0])
     dy = abs(no_atual[1] - no_objetivo[1])
     dz = abs(no_atual[2] - no_objetivo[2])
     return dx + dy + dz
 
-# Função que implementa o algoritmo A*
+#algoritmo A*
 def a_estrela(inicio, objetivo, vizinhos_funcao):
     aberta = []
     fechada = set(obstaculos)
@@ -66,7 +66,7 @@ def a_estrela(inicio, objetivo, vizinhos_funcao):
 
     return None
 
-# Função exemplo para obter os vizinhos de um nó (como coordenadas)
+#obter os vizinhos de um nó (como coordenadas)
 def obter_vizinhos(no):
     x, y, z = no
     return [
@@ -75,7 +75,7 @@ def obter_vizinhos(no):
         (x, y, z + 1), (x, y, z - 1)
     ]
 
-# Função para calcular as trajetórias entre todos os nós-alvo
+#para nós-alvo
 def calcular_trajetorias(nos_alvo, vizinhos_funcao):
     trajetorias = []
     lista_continua = []
@@ -99,24 +99,23 @@ def calcular_trajetorias(nos_alvo, vizinhos_funcao):
 
         tempo_total += tempo_processamento
 
-    
-    ##Converte a lista contínua de coordenadas para uma lista de Poses
+    ##converte a lista contínua de coordenadas para uma lista de Poses
     lista_continua_poses = [coordenadas_para_pose(x, y, z) for (x, y, z) in lista_continua]
 
     return trajetorias, lista_continua_poses, tempo_total, tamanho_total
 
-# Função para publicar uma lista de poses em um tópico ROS
+#publicar uma lista de poses em um tópico ROS
 def publish_pose_list(pose_list):
-    pub = rospy.Publisher('pose_topic', Pose, queue_size=10)
+    pub = rospy.Publisher('pose_topic', PoseStamped, queue_size=10)
     rospy.init_node('pose_publisher', anonymous=True)
     rate = rospy.Rate(1)  # 1 Hz
     for pose in pose_list:
-        pub.publish(pose)
+        #pub.publish(pose)
+        print(pose)
         rate.sleep()
 
 if __name__ == '__main__':
     try:
-        # Define os nós-alvo
         nos_alvo = [
             coordenadas_para_pose(0, 0, 0),
             coordenadas_para_pose(3, 3, 3),
@@ -124,10 +123,8 @@ if __name__ == '__main__':
             coordenadas_para_pose(20, 20, 20)
         ]
 
-        # Calcula as trajetórias
         trajetorias, lista_continua, tempo_total, tamanho_total = calcular_trajetorias(nos_alvo, obter_vizinhos)
 
-        # Publica a lista contínua de coordenadas no tópico ROS
         publish_pose_list(lista_continua)
 
         print("Trajetórias encontradas:")
