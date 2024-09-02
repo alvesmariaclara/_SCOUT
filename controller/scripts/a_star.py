@@ -7,6 +7,8 @@ from geometry_msgs.msg import Pose, Point, Quaternion, PoseStamped
 from std_msgs.msg import Header
 import time
 
+last_pose = Pose()
+
 #converter de Pose para coordenadas (x, y, z)
 def pose_para_coordenadas(pose):
     return (pose.position.x, pose.position.y, pose.position.z)
@@ -15,11 +17,21 @@ def pose_para_coordenadas(pose):
 def coordenadas_para_pose(x, y, z):
     return Pose(position=Point(x, y, z), orientation=Quaternion(0, 0, 0, 1))
 
+
+def coordenadas_para_posestamped(x, y, z, frame_id='map', stamp=None):
+    pose = Pose(position=Point(x, y, z), orientation=Quaternion(0, 0, 0, 1))
+    
+    pose_stamped = PoseStamped()
+    pose_stamped.header = Header(frame_id=frame_id, stamp=stamp)
+    pose_stamped.pose = pose
+    
+    return pose_stamped
+
 #global de obstáculos (como coordenadas para hash)
 obstaculos = [
     pose_para_coordenadas(Pose(position=Point(1, 1, 1), orientation=Quaternion(0, 0, 0, 1))),
-    pose_para_coordenadas(Pose(position=Point(2, 2, 2), orientation=Quaternion(0, 0, 0, 1))),
-    pose_para_coordenadas(Pose(position=Point(1, 2, 1), orientation=Quaternion(0, 0, 0, 1)))
+    pose_para_coordenadas(Pose(position=Point(3, 2, 0.5), orientation=Quaternion(0, 0, 0, 1))),
+   # pose_para_coordenadas(Pose(position=Point(7, 2, 1), orientation=Quaternion(0, 0, 0, 1)))
 ]
 
 #calcular a heurística (distância euclidiana) entre dois nós (como coordenadas)
@@ -100,27 +112,36 @@ def calcular_trajetorias(nos_alvo, vizinhos_funcao):
         tempo_total += tempo_processamento
 
     ##converte a lista contínua de coordenadas para uma lista de Poses
-    lista_continua_poses = [coordenadas_para_pose(x, y, z) for (x, y, z) in lista_continua]
+    lista_continua_poses = [coordenadas_para_posestamped(x, y, z) for (x, y, z) in lista_continua]
 
     return trajetorias, lista_continua_poses, tempo_total, tamanho_total
 
-#publicar uma lista de poses em um tópico ROS
 def publish_pose_list(pose_list):
+    if not rospy.get_node_uri():
+        rospy.init_node('pose_publisher', anonymous=True)
+    
     pub = rospy.Publisher('pose_topic', PoseStamped, queue_size=10)
-    rospy.init_node('pose_publisher', anonymous=True)
     rate = rospy.Rate(1)  # 1 Hz
+
     for pose in pose_list:
-        #pub.publish(pose)
-        print(pose)
+        try:
+            pub.publish(pose)
+            rospy.loginfo("Publicado: %s", pose)
+        except rospy.ROSInterruptException as e:
+            rospy.logerr("Erro ao publicar: %s", e)
         rate.sleep()
 
 if __name__ == '__main__':
+
+    initial_pose = last_pose
+
     try:
         nos_alvo = [
             coordenadas_para_pose(0, 0, 0),
             coordenadas_para_pose(3, 3, 3),
-            coordenadas_para_pose(17, 17, 17),
-            coordenadas_para_pose(20, 20, 20)
+            coordenadas_para_pose(4, 5, 6),
+            coordenadas_para_pose(5, 7, 6),  
+            initial_pose
         ]
 
         trajetorias, lista_continua, tempo_total, tamanho_total = calcular_trajetorias(nos_alvo, obter_vizinhos)

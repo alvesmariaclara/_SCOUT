@@ -30,9 +30,9 @@ def update_target(base_pose: Pose, target_pose: Pose) -> bool:
     limiar_altura = 0.5
     limiar = 1.0
 
-    rospy.loginfo("Base pose: %s %s %s", base_pose.position.z, base_pose.position.x, base_pose.position.y)
-    rospy.loginfo("Target: %s %s %s", target_pose.position.z, target_pose.position.x, target_pose.position.y)
-    rospy.loginfo("Diferença: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
+    rospy.loginfo("Base pose: %s %s %s", base_pose.position.x, base_pose.position.y, base_pose.position.z,)
+    rospy.loginfo("Target: %s %s %s", target_pose.position.x, target_pose.position.y, target_pose.position.z)
+    rospy.loginfo("Diferença: %s %s %s", diferenca.x, diferenca.y, diferenca.z)
 
     #valores próximos ao limiar
     if abs(diferenca.z) <= limiar_altura and abs(diferenca.x) <= limiar and abs(diferenca.y) <= limiar:
@@ -44,7 +44,7 @@ def publish_pose_list():
     rospy.init_node("pose_navigator", anonymous=True)
 
     rospy.Subscriber("/ground_truth_to_tf/pose", PoseStamped, callback_current_pose)
-    rospy.Subscriber("/pose_topic", Pose, callback_new_pose)
+    rospy.Subscriber("/pose_topic", PoseStamped, callback_new_pose)
 
     pub = rospy.Publisher("/drone/target", Pose, queue_size=10)
 
