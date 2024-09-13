@@ -40,7 +40,8 @@ def update_target(base_pose: Pose, target_pose: Pose) -> bool:
     limiar = 1.0
 
     #rospy.loginfo("Base pose: %s %s %s", base_pose.position.z, base_pose.position.x, base_pose.position.y)
-    rospy.loginfo("Target: %s %s %s", target_pose.position.z, target_pose.position.x, target_pose.position.y)
+    #rospy.loginfo("%s", target_pose.pose)
+    rospy.loginfo("Target: %s %s %s", target_pose.position.x, target_pose.position.y, target_pose.position.z)
     #rospy.loginfo("Diferença: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
 
     # Todos os valores próximos ao limiar
@@ -84,6 +85,7 @@ def publish_pose_list():
             continue
 
         pub.publish(target_pose)
+        rospy.loginfo("%s", target_pose)
         rate.sleep()
 
 

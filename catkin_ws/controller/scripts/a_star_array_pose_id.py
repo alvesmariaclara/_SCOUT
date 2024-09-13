@@ -17,12 +17,12 @@ def pose_para_coordenadas(pose):
 
 # converter de coordenadas (x, y, z) para Pose
 def coordenadas_para_pose(x, y, z):
-    return Pose(position=Point(x, y, z), orientation=Quaternion(0, 0, 0, 1))
+    return Pose(position=Point(x, y, z), orientation=Quaternion(0, 0, 0, 0))
 
 # global de obstáculos (como coordenadas para hash)
 obstaculos = [
-    pose_para_coordenadas(Pose(position=Point(1, 1, 1), orientation=Quaternion(0, 0, 0, 1))),
-    pose_para_coordenadas(Pose(position=Point(3, 2, 0.5), orientation=Quaternion(0, 0, 0, 1))),
+    pose_para_coordenadas(Pose(position=Point(1, 1, 1), orientation=Quaternion(0, 0, 0, 0))),
+    pose_para_coordenadas(Pose(position=Point(3, 2, 0.5), orientation=Quaternion(0, 0, 0, 0))),
     # pose_para_coordenadas(Pose(position=Point(7, 2, 1), orientation=Quaternion(0, 0, 0, 1)))
 ]
 
@@ -146,7 +146,7 @@ if __name__ == '__main__':
                 print(f"Trajetória {i + 1}: Nenhum caminho encontrado")
             print(f"Tempo de processamento: {tempo:.4f} segundos\n")
 
-        #print(f"Lista contínua de coordenadas: {lista_continua}\n")
+        print(f"Lista contínua de coordenadas: {lista_continua}\n")
         print(f"Tamanho total da trajetória contínua: {len(lista_continua)} nós")
         print(f"Tempo total de processamento: {tempo_total:.4f} segundos\n")
 

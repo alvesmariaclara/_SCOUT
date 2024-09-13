@@ -54,7 +54,7 @@ def compute_linear_vel(base_pose: Pose, target_pose: Pose) -> Vector3:
     linear_vel = Vector3()
     diferenca = Vector3()
 
-    limiar = 0.05*scale
+    #limiar = 0.05*scale
 
     # se z tiver de valores próximos ao limiar, move x e y
     # se não,
@@ -75,32 +75,42 @@ def compute_linear_vel(base_pose: Pose, target_pose: Pose) -> Vector3:
         linear_vel.x = 0
         linear_vel.y = 0
         rospy.loginfo("Caso 1: Todos os valores próximos: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
-    # Se não, altura maior que o +limiar
+    # Se não, altura maior que o +limiar 
     elif diferenca.z>limiar_altura:
         linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
         linear_vel.x = 0
         linear_vel.y = 0
         rospy.loginfo("Caso 2: Altura maior que o limiar: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
-    # Se não, altura menor que o -limiar
+    # Se não, altura menor que o -limiar 
     elif diferenca.z<-limiar_altura:
        # Se diferença de x e y não atingidos, diferença x ou de y > limiar, calcula x e y
-        if abs(diferenca.x)>limiar or abs(diferenca.y)>limiar:
+        if abs(diferenca.x)>limiar and abs(diferenca.y)<=limiar:
             linear_vel.z = 0
             linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
-            linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
-            rospy.loginfo("Caso 3.1: Altura menor que o limiar negativo, x ou y>limiar: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
-        # Se x e y atingidos, calcula z.
+            linear_vel.y = 0
+            rospy.loginfo("Caso 3.1: altura mais baixo e abs X mais alto que o limiar: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
+        elif abs(diferenca.y)>limiar and abs(diferenca.x)<=limiar:
+           linear_vel.z = 0
+           linear_vel.x = 0
+           linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
+           rospy.loginfo("Caso 3.2: altura mais baixo e abs Y mais alto que o limiar: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
+        elif abs(diferenca.x)>limiar and abs(diferenca.y)>limiar:
+           linear_vel.z = 0
+           linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
+           linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
+           rospy.loginfo("Caso 3.3: altura mais baixo e abs(X e Y) mais alto que o limiar: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
+        # Se x e y atingidos, calcula z.   
         else:
             linear_vel.z = compute_n_vel(base_pose.position.z, target_pose.position.z)
             linear_vel.x = 0
             linear_vel.y = 0
-            rospy.loginfo("Caso 3.1: Altura menor que o limiar negativo, x ou y<limiar: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
+            rospy.loginfo("Caso 3.4: Altura menor que o limiar negativo, abs X e Y <= limiar: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
     # Se não, altura entre -limiar e +limiar, calcula x e y.
     elif diferenca.z<limiar_altura and diferenca.z>=0:
         linear_vel.z = 0
         linear_vel.x = compute_n_vel(base_pose.position.x, target_pose.position.x)
         linear_vel.y = compute_n_vel(base_pose.position.y, target_pose.position.y)
-        rospy.loginfo("Caso 3: Altura próximo ao limiar: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
+        rospy.loginfo("Caso 3: Altura próximo ao limiar, X e Y abaixo: %s %s %s", diferenca.z, diferenca.x, diferenca.y)
        
 
     return linear_vel
